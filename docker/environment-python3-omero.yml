@@ -1,0 +1,11 @@
+name: python3
+channels:
+- ome
+dependencies:
+# ome
+- omero-py>=5.6.dev5
+# other stuff
+- scipy
+- scikit-image
+- pandas
+- bokeh
