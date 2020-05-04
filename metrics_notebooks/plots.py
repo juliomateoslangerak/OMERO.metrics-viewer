@@ -3,7 +3,7 @@ from matplotlib import cm
 import numpy as np
 from scipy.interpolate import griddata
 
-import utils
+from utils import get_tables, get_intensities
 
 from bokeh.io import output_notebook, reset_output, show
 from bokeh.layouts import gridplot
@@ -44,7 +44,7 @@ def plot_homogeneity_map(image):
         x_positions = np.array([val for col in data.columns for val in col.values if col.name == 'x_weighted_centroid'])
         y_positions = np.array([val for col in data.columns for val in col.values if col.name == 'y_weighted_centroid'])
         grid_x, grid_y = np.mgrid[0:x_dim, 0:y_dim]
-        image_intensities = toolbox.get_intensities(image, c_range=c, t_range=0).max(0)
+        image_intensities = get_intensities(image, c_range=c, t_range=0).max(0)
 
         try:
             interpolated_max_int = griddata(np.stack((x_positions, y_positions), axis=1),
@@ -232,7 +232,7 @@ def plot_distances_map_bokeh(image):
     show(grid)
 
 
-def plot_psfs(image, bead_nr=None):
+def plot_psfs(image, bead_nr):
     def plot_mip(image, title):
         fig = figure()
         fig.title.text = title
@@ -256,7 +256,7 @@ def plot_psfs(image, bead_nr=None):
                   image.getPixelSizeY(),
                   image.getPixelSizeX())
 
-    properties_tables = utils.get_tables(image, namespace_start='metrics', name_filter='properties')
+    properties_tables = get_tables(image, namespace_start='metrics', name_filter='properties')
     if len(properties_tables) != 1:
         raise Exception('There are none or more than one distances tables. Verify data integrity.')
     properties_table = properties_tables[0]
@@ -264,13 +264,13 @@ def plot_psfs(image, bead_nr=None):
     properties_col_names = [c.name for c in properties_table.getHeaders()]
     properties_data = properties_table.readCoordinates(list(range(properties_row_count)))
 
-    x_profiles_table = utils.get_tables(image, namespace_start='metrics', name_filter='X_profiles')[0]
+    x_profiles_table = get_tables(image, namespace_start='metrics', name_filter='X_profiles')[0]
     x_profiles_data = x_profiles_table.readCoordinates(list(range(x_profiles_table.getNumberOfRows())))
 
-    y_profiles_table = utils.get_tables(image, namespace_start='metrics', name_filter='Y_profiles')[0]
+    y_profiles_table = get_tables(image, namespace_start='metrics', name_filter='Y_profiles')[0]
     y_profiles_data = y_profiles_table.readCoordinates(list(range(y_profiles_table.getNumberOfRows())))
 
-    z_profiles_table = utils.get_tables(image, namespace_start='metrics', name_filter='Z_profiles')[0]
+    z_profiles_table = get_tables(image, namespace_start='metrics', name_filter='Z_profiles')[0]
     z_profiles_data = z_profiles_table.readCoordinates(list(range(z_profiles_table.getNumberOfRows())))
 
     psf_images = list(image._conn.getObjects('Image',
@@ -282,7 +282,7 @@ def plot_psfs(image, bead_nr=None):
     fwhm_units = [val for col in properties_data.columns for val in col.values if col.name == 'fwhm_units'][0]
 
     # Prepare the plot
-    plots = [[] for x in range(properties_row_count)]
+    plots = [[] for x in range(properties_row_count * 3)]
     # output_file("psfs.html", title=f"PSFs for image {image.getName()}\nAcquisition date: {image.getAcquisitionDate()}")
     # color_bar = ColorBar(color_mapper=color_mapper, label_standoff=10, location=(0, 0))
 
@@ -296,7 +296,7 @@ def plot_psfs(image, bead_nr=None):
         end = bead_nr
 
     for i, (psf_image, x_fwhm, y_fwhm, z_fwhm) in enumerate(zip(psf_images[start:end], x_fwhms[start:end], y_fwhms[start:end], z_fwhms[start:end])):
-        psf_intensities = np.squeeze(utils.get_intensities(psf_image))
+        psf_intensities = np.squeeze(get_intensities(psf_image))
         x_dim = psf_image.getSizeX()
         y_dim = psf_image.getSizeY()
         z_dim = psf_image.getSizeZ()
@@ -318,15 +318,17 @@ def plot_psfs(image, bead_nr=None):
 
         color_mapper = LogColorMapper(palette="Inferno256", low=0, high=psf_intensities.max())
 
-        x_mip_fig = plot_mip(x_mip, f'X MIP bead {i}')
-        y_mip_fig = plot_mip(y_mip, f'Y MIP bead {i}')
-        z_mip_fig = plot_mip(z_mip, f'Z MIP bead {i}')
+        x_mip_fig = plot_mip(x_mip, f'X MIP bead {i+1}')
+        y_mip_fig = plot_mip(y_mip, f'Y MIP bead {i+1}')
+        z_mip_fig = plot_mip(z_mip, f'Z MIP bead {i+1}')
 
         x_prof_fig = plot_prof((x_raw_profile, x_fitted_profile), f'X profile bead {i}', x_fwhm)
         y_prof_fig = plot_prof((y_raw_profile, y_fitted_profile), f'Y profile bead {i}', y_fwhm)
         z_prof_fig = plot_prof((z_raw_profile, z_fitted_profile), f'Z profile bead {i}', z_fwhm)
 
-        plots[i].extend([x_mip_fig, x_prof_fig, y_mip_fig, y_prof_fig, z_mip_fig, z_prof_fig])
+        plots[i*3].extend([x_mip_fig, x_prof_fig])
+        plots[(i*3)+1].extend([y_mip_fig, y_prof_fig])
+        plots[(i*3)+2].extend([z_mip_fig, z_prof_fig])
 
     grid = gridplot(plots, plot_width=600, sizing_mode='scale_both')  # , plot_height=100 * nr_channels)
 
