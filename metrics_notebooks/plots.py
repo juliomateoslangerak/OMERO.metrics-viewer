@@ -3,7 +3,7 @@ from matplotlib import cm
 import numpy as np
 from scipy.interpolate import griddata
 
-from utils import *
+import utils
 
 from bokeh.io import output_notebook, reset_output, show
 from bokeh.layouts import gridplot
@@ -232,7 +232,7 @@ def plot_distances_map_bokeh(image):
     show(grid)
 
 
-def plot_psfs(image):
+def plot_psfs(image, bead_nr=None):
     def plot_mip(image, title):
         fig = figure()
         fig.title.text = title
@@ -256,7 +256,7 @@ def plot_psfs(image):
                   image.getPixelSizeY(),
                   image.getPixelSizeX())
 
-    properties_tables = get_tables(image, namespace_start='metrics', name_filter='properties')
+    properties_tables = utils.get_tables(image, namespace_start='metrics', name_filter='properties')
     if len(properties_tables) != 1:
         raise Exception('There are none or more than one distances tables. Verify data integrity.')
     properties_table = properties_tables[0]
@@ -264,13 +264,13 @@ def plot_psfs(image):
     properties_col_names = [c.name for c in properties_table.getHeaders()]
     properties_data = properties_table.readCoordinates(list(range(properties_row_count)))
 
-    x_profiles_table = get_tables(image, namespace_start='metrics', name_filter='X_profiles')[0]
+    x_profiles_table = utils.get_tables(image, namespace_start='metrics', name_filter='X_profiles')[0]
     x_profiles_data = x_profiles_table.readCoordinates(list(range(x_profiles_table.getNumberOfRows())))
 
-    y_profiles_table = get_tables(image, namespace_start='metrics', name_filter='Y_profiles')[0]
+    y_profiles_table = utils.get_tables(image, namespace_start='metrics', name_filter='Y_profiles')[0]
     y_profiles_data = y_profiles_table.readCoordinates(list(range(y_profiles_table.getNumberOfRows())))
 
-    z_profiles_table = get_tables(image, namespace_start='metrics', name_filter='Z_profiles')[0]
+    z_profiles_table = utils.get_tables(image, namespace_start='metrics', name_filter='Z_profiles')[0]
     z_profiles_data = z_profiles_table.readCoordinates(list(range(z_profiles_table.getNumberOfRows())))
 
     psf_images = list(image._conn.getObjects('Image',
@@ -286,8 +286,17 @@ def plot_psfs(image):
     # output_file("psfs.html", title=f"PSFs for image {image.getName()}\nAcquisition date: {image.getAcquisitionDate()}")
     # color_bar = ColorBar(color_mapper=color_mapper, label_standoff=10, location=(0, 0))
 
-    for i, (psf_image, x_fwhm, y_fwhm, z_fwhm) in enumerate(zip(psf_images, x_fwhms, y_fwhms, z_fwhms)):
-        psf_intensities = np.squeeze(toolbox.get_intensities(psf_image))
+    if bead_nr is None or bead_nr == 'all':
+        start = 0
+        end = len(psf_images)
+    elif bead_nr == 0:
+        return
+    elif bead_nr > 0:
+        start = bead_nr - 1
+        end = bead_nr
+
+    for i, (psf_image, x_fwhm, y_fwhm, z_fwhm) in enumerate(zip(psf_images[start:end], x_fwhms[start:end], y_fwhms[start:end], z_fwhms[start:end])):
+        psf_intensities = np.squeeze(utils.get_intensities(psf_image))
         x_dim = psf_image.getSizeX()
         y_dim = psf_image.getSizeY()
         z_dim = psf_image.getSizeZ()
