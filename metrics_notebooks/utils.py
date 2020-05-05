@@ -6,7 +6,7 @@ import pandas as pd
 
 UNVALIDATED_NAMESPACE_PREFIX = 'metrics/analyzed'
 # VALIDATED_NAMESPACE_PREFIX = 'metrics/validated'
-VALIDATED_NAMESPACE_PREFIX = 'metrics/analyzed'
+VALIDATED_NAMESPACE_PREFIX = 'metrics'
 
 def get_microscope_history(project):
 
