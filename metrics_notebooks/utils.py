@@ -1,7 +1,43 @@
 import omero.gateway as gw
+from omero import model
 from itertools import product
 import numpy as np
+import pandas as pd
 
+UNVALIDATED_NAMESPACE_PREFIX = 'metrics/analyzed'
+# VALIDATED_NAMESPACE_PREFIX = 'metrics/validated'
+VALIDATED_NAMESPACE_PREFIX = 'metrics/analyzed'
+
+def get_microscope_history(project):
+
+    history_df = pd.DataFrame()  # TODO: Separate dataset history and images history... or tag table with analysis type
+    for dataset in project.listChildren():
+        has_validated_data = False
+        time_point = dict()
+        # Go through Dataset MapAnnotations
+        for ann in dataset.listAnnotations():
+            if isinstance(ann, gw.MapAnnotationWrapper) and \
+                    ann.getNs() is not None and \
+                    ann.getNs().startswith(VALIDATED_NAMESPACE_PREFIX):
+                for k, v in ann.getValue():
+                    time_point[k] = v
+                has_validated_data = True
+
+        # Go through the images in the dataset
+        for image in dataset.listChildren():
+            for ann in image.listAnnotations():
+                if isinstance(ann, gw.MapAnnotationWrapper) and \
+                        ann.getNs() is not None and \
+                        ann.getNs().startswith(VALIDATED_NAMESPACE_PREFIX):
+                    for k, v in ann.getValue():
+                        time_point[k] = v
+                    has_validated_data = True
+
+        if has_validated_data:
+            time_point['Acquisition_date_time'] = dataset.getName()[:10]  # Replace this with some proper acquisition date
+            history_df = history_df.append(time_point, ignore_index=True)
+
+    return history_df
 
 def get_image_shape(image):
     try:
